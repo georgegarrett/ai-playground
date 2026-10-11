@@ -1,8 +1,206 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Research Computing Monitor</title><link rel="stylesheet" href="styles.css"><script src="app.js" defer></script></head>
-<body><aside><a class="brand" href="#overview"><b>▦</b> RCM<small>COMPUTE OPERATIONS</small></a><div class="nav-label">WORKSPACE</div><nav><a href="#overview" class="active">◈ &nbsp; Overview</a><a href="#gpu">▤ &nbsp; GPU resources</a><a href="#jobs">≡ &nbsp; Slurm jobs</a><a href="#storage">▱ &nbsp; Storage</a><a href="#alerts">◉ &nbsp; System alerts</a></nav><p class="sidebar-note">● Simulation environment<br><small>Research cluster · demo</small></p></aside>
-<main id="overview"><div class="topline">WORKSPACE / Cluster overview <span>SIMULATED DATA</span></div><header><div><div class="eyebrow">YOUR CLUSTER, AT A GLANCE</div><h1>Research Computing Monitor</h1><p>A clearer view of your resources. More room for discovery.</p></div><button id="refresh">↻ &nbsp; Refresh simulation</button></header><div class="cluster"><strong>● &nbsp; Atlas research cluster</strong><span id="updated" role="status"></span></div><section id="metrics" class="metrics" aria-label="Cluster summary"></section><div class="grid">
-<section class="panel" id="gpu"><div class="heading"><div><h2>GPU resources</h2><p>Utilization across compute nodes</p></div><span class="tag">4 nodes · 16 GPUs</span></div><div id="nodes"></div><div class="panel-foot">● Utilization <span>4 GPUs per node</span></div></section>
-<section class="panel" id="storage"><div class="heading"><div><h2>Storage overview</h2><p>Space for your next breakthrough</p></div><span>▱</span></div><div id="volumes"></div><div class="panel-foot">Capacity readings are simulated</div></section>
-<section class="panel" id="jobs"><div class="heading"><div><h2>Slurm jobs</h2><p>Current workload and queue activity</p></div><label>Status <select id="filter"><option>All</option><option>Running</option><option>Pending</option></select></label></div><div class="table-wrap"><table><thead><tr><th>Job / ID</th><th>User</th><th>Status</th><th>Partition</th><th>Elapsed</th><th>GPUs</th></tr></thead><tbody id="job-rows"></tbody></table></div><div class="panel-foot" id="job-count"></div></section>
-<section class="panel" id="alerts"><div class="heading"><div><h2>Recent alerts</h2><p>Updates from around the cluster</p></div><span class="tag">3 events</span></div><div id="events"></div><div class="panel-foot">Sample events · not live notifications</div></section></div><footer>Built for the work that moves research forward.<span>Demo dashboard · no live cluster connection</span></footer></main></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Research Computing Monitor</title>
+  <meta name="description" content="Operational dashboard for university HPC clusters, GPUs, storage and service health (synthetic data).">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232a78d6'/%3E%3Cpath d='M8 22V14M13 22V10M18 22V16M23 22V8' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/styles.css">
+  <script>
+    // Apply the saved theme before first paint to avoid a flash.
+    try { const t = localStorage.getItem('rcm-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <script src="js/data.js" defer></script>
+  <script src="js/charts.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <aside class="sidebar" aria-label="Primary">
+    <a class="brand" href="#overview">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" rx="8"/><path d="M8 22V14M13 22V10M18 22V16M23 22V8"/></svg>
+      </span>
+      <span><strong>RC Monitor</strong><small>Research Computing</small></span>
+    </a>
+    <nav>
+      <a href="#overview" class="active"><span aria-hidden="true">◧</span>Overview</a>
+      <a href="#clusters"><span aria-hidden="true">▦</span>Clusters</a>
+      <a href="#gpus"><span aria-hidden="true">▤</span>GPU fleet</a>
+      <a href="#storage"><span aria-hidden="true">▭</span>Storage</a>
+      <a href="#health"><span aria-hidden="true">◉</span>Health &amp; alerts</a>
+      <a href="#activity"><span aria-hidden="true">≡</span>Activity</a>
+    </nav>
+    <div class="sidebar-foot">
+      <span class="pill">Synthetic data</span>
+      <p>Demo environment. No live systems are connected.</p>
+    </div>
+  </aside>
+
+  <main id="main">
+    <header class="topbar">
+      <div>
+        <div class="crumbs">Office of Research Computing <span aria-hidden="true">/</span> Operations</div>
+        <h1>Research Computing Monitor</h1>
+      </div>
+      <div class="controls" role="toolbar" aria-label="Dashboard controls">
+        <div class="segmented" role="group" aria-label="Time range">
+          <button type="button" data-range="24h">24h</button>
+          <button type="button" data-range="7d" aria-pressed="true">7d</button>
+          <button type="button" data-range="30d">30d</button>
+        </div>
+        <button type="button" id="live" class="btn" aria-pressed="true"><span class="live-dot" aria-hidden="true"></span><span id="live-label">Live</span></button>
+        <button type="button" id="theme" class="btn icon-btn" aria-label="Toggle color theme" title="Toggle color theme">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <section id="overview" class="section" aria-labelledby="overview-h">
+      <h2 id="overview-h" class="sr-only">Overview</h2>
+      <div id="status-banner" class="status-banner" role="status"></div>
+      <div id="kpis" class="kpis"></div>
+
+      <div class="grid">
+        <article class="card span-8">
+          <div class="card-head">
+            <div><h3>Cluster allocation</h3><p>Share of cores (Orion, Helix) and GPUs (Nova) allocated to jobs</p></div>
+            <button type="button" class="link-btn" data-table-toggle="alloc">Table view</button>
+          </div>
+          <div class="chart" id="alloc-chart"></div>
+          <div class="table-view" id="alloc-table" hidden></div>
+          <div class="legend" id="alloc-legend"></div>
+        </article>
+        <article class="card span-4">
+          <div class="card-head"><div><h3>Service status</h3><p>Core platform services</p></div><span class="muted small" id="svc-summary"></span></div>
+          <ul class="services" id="services"></ul>
+        </article>
+      </div>
+    </section>
+
+    <section id="clusters" class="section" aria-labelledby="clusters-h">
+      <div class="section-head"><h2 id="clusters-h">Clusters</h2><p>Node state, capacity and scheduling across the three production systems</p></div>
+      <div class="grid" id="cluster-cards"></div>
+      <div class="legend node-legend">
+        <span><i class="sw st-alloc"></i>Allocated</span><span><i class="sw st-mixed"></i>Mixed</span><span><i class="sw st-idle"></i>Idle</span>
+        <span><i class="sw st-drain"></i>Draining</span><span><i class="sw st-down"></i>Down</span>
+      </div>
+    </section>
+
+    <section id="gpus" class="section" aria-labelledby="gpus-h">
+      <div class="section-head"><h2 id="gpus-h">GPU fleet</h2><p>Nova · 256 accelerators across 48 nodes</p></div>
+      <div class="grid">
+        <article class="card span-8">
+          <div class="card-head">
+            <div><h3>Live GPU utilization</h3><p>Each tile is one GPU. Hover or focus a tile for details.</p></div>
+            <div class="chips" role="group" aria-label="Filter by GPU model" id="gpu-filter">
+              <button type="button" data-model="all" aria-pressed="true">All</button>
+              <button type="button" data-model="H100">H100</button>
+              <button type="button" data-model="A100">A100</button>
+              <button type="button" data-model="L40S">L40S</button>
+            </div>
+          </div>
+          <div class="gpu-stats" id="gpu-stats"></div>
+          <div class="gpu-wall" id="gpu-wall"></div>
+          <div class="scale-legend">
+            <span>0%</span><span class="ramp" aria-hidden="true"><i class="s0"></i><i class="s1"></i><i class="s2"></i><i class="s3"></i><i class="s4"></i><i class="s5"></i><i class="s6"></i></span><span>100% utilization</span>
+            <span class="sep"></span><span><i class="sw gpu-down-sw"></i>Out of service</span>
+          </div>
+        </article>
+        <article class="card span-4">
+          <div class="card-head"><div><h3>GPU-hours by department</h3><p>Last 30 days · allocated hours</p></div></div>
+          <div id="dept-bars" class="barlist"></div>
+          <p class="card-foot" id="dept-foot"></p>
+        </article>
+      </div>
+    </section>
+
+    <section id="storage" class="section" aria-labelledby="storage-h">
+      <div class="section-head"><h2 id="storage-h">Storage</h2><p>Capacity, growth and throughput across tiers</p></div>
+      <div class="grid">
+        <article class="card span-7">
+          <div class="card-head"><div><h3>Capacity by tier</h3><p>Forecast assumes the trailing 4-week growth rate</p></div></div>
+          <div id="storage-list" class="storage-list"></div>
+        </article>
+        <article class="card span-5">
+          <div class="card-head">
+            <div><h3>/scratch throughput</h3><p>Aggregate Lustre read and write, GB/s</p></div>
+            <button type="button" class="link-btn" data-table-toggle="io">Table view</button>
+          </div>
+          <div class="chart" id="io-chart"></div>
+          <div class="table-view" id="io-table" hidden></div>
+          <div class="legend" id="io-legend"></div>
+        </article>
+      </div>
+    </section>
+
+    <section id="health" class="section" aria-labelledby="health-h">
+      <div class="section-head"><h2 id="health-h">Health &amp; alerts</h2><p>30-day availability and open alerts</p></div>
+      <div class="grid">
+        <article class="card span-7">
+          <div class="card-head"><div><h3>Availability, last 30 days</h3><p>One bar per day · worst status recorded that day</p></div><span class="kpi-inline" id="avail-overall"></span></div>
+          <div id="uptime" class="uptime"></div>
+          <div class="legend">
+            <span><i class="sw st-good"></i>Operational</span><span><i class="sw st-warning"></i>Degraded</span>
+            <span><i class="sw st-serious"></i>Partial outage</span><span><i class="sw st-critical"></i>Major outage</span>
+          </div>
+        </article>
+        <article class="card span-5">
+          <div class="card-head">
+            <div><h3>Alerts</h3><p id="alert-sub">Open alerts across monitoring sources</p></div>
+          </div>
+          <div class="chips" role="group" aria-label="Filter alerts by severity" id="alert-filter"></div>
+          <ul class="alerts" id="alerts" aria-live="polite"></ul>
+        </article>
+      </div>
+    </section>
+
+    <section id="activity" class="section" aria-labelledby="activity-h">
+      <div class="section-head"><h2 id="activity-h">Activity</h2><p>Jobs, queues and operational changes</p></div>
+      <div class="grid">
+        <article class="card span-12">
+          <div class="card-head">
+            <div><h3>Jobs</h3><p id="jobs-sub">Recent Slurm jobs across all clusters (sample)</p></div>
+            <div class="filters">
+              <label class="search"><span class="sr-only">Search jobs</span><input id="job-search" type="search" placeholder="Search job, user, account…" autocomplete="off"></label>
+              <label><span class="sr-only">State</span><select id="job-state"><option value="all">All states</option><option>RUNNING</option><option>PENDING</option><option>COMPLETED</option><option>FAILED</option></select></label>
+              <label><span class="sr-only">Cluster</span><select id="job-cluster"><option value="all">All clusters</option><option value="orion">Orion</option><option value="nova">Nova</option><option value="helix">Helix</option></select></label>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="jobs">
+              <thead><tr>
+                <th data-sort="id" aria-sort="descending"><button type="button">Job</button></th>
+                <th data-sort="user"><button type="button">User / account</button></th>
+                <th data-sort="state"><button type="button">State</button></th>
+                <th data-sort="partition"><button type="button">Partition</button></th>
+                <th data-sort="cpus" class="num"><button type="button">CPUs</button></th>
+                <th data-sort="gpus" class="num"><button type="button">GPUs</button></th>
+                <th data-sort="elapsed"><button type="button">Elapsed / limit</button></th>
+                <th data-sort="eff" class="num"><button type="button">CPU eff.</button></th>
+              </tr></thead>
+              <tbody id="job-rows"></tbody>
+            </table>
+          </div>
+          <p class="card-foot" id="job-count"></p>
+        </article>
+        <article class="card span-6">
+          <div class="card-head"><div><h3>Queue wait by partition</h3><p>Median wait, last 7 days · tick marks p90</p></div></div>
+          <div id="wait-bars" class="barlist"></div>
+        </article>
+        <article class="card span-6">
+          <div class="card-head"><div><h3>Operations log</h3><p>Changes, incidents and planned work</p></div></div>
+          <ol class="timeline" id="timeline"></ol>
+        </article>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>Research Computing Monitor · demo build</span>
+      <span>All figures are synthetic and generated in your browser. <span id="updated"></span></span>
+    </footer>
+  </main>
+</body>
+</html>
